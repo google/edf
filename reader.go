@@ -72,37 +72,38 @@ func readHeader(input *os.File) (*Header, error) {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	header.Version = string(data)
+	header.Version = strings.TrimSpace(string(data))
 
 	if data, err = readNextBytes(input, 80); err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	header.PatiendID = string(data)
+	header.PatiendID = strings.TrimSpace(string(data))
 
 	if data, err = readNextBytes(input, 80); err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	header.RecordingID = string(data)
+	header.RecordingID = strings.TrimSpace(string(data))
 
 	if data, err = readNextBytes(input, 8); err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	header.StartDate = string(data)
+	header.StartDate = strings.TrimSpace(string(data))
 
 	if data, err = readNextBytes(input, 8); err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	header.StartTime = string(data)
+	header.StartTime = strings.TrimSpace(string(data))
 
 	if data, err = readNextBytes(input, 8); err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	if iData, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 32); err != nil {
+	iData, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 32)
+	if err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
@@ -112,13 +113,14 @@ func readHeader(input *os.File) (*Header, error) {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	header.Reserved = string(data)
+	header.Reserved = strings.TrimSpace(string(data))
 
 	if data, err = readNextBytes(input, 8); err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	if iData, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 32); err != nil {
+	iData, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 32)
+	if err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
@@ -128,7 +130,8 @@ func readHeader(input *os.File) (*Header, error) {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	if fData, err = strconv.ParseFloat(strings.TrimSpace(string(data)), 32); err != nil {
+	fData, err = strconv.ParseFloat(strings.TrimSpace(string(data)), 32)
+	if err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
@@ -138,13 +141,14 @@ func readHeader(input *os.File) (*Header, error) {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
-	if iData, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 32); err != nil {
+	iData, err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 32)
+	if err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
 	header.NumSignals = uint32(iData)
 
-	header.Signals = make([]Signal, header.NumSignals)
+	header.Signals = make([]SignalDefinition, header.NumSignals)
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
 		signal := &header.Signals[signalIndex]
@@ -152,7 +156,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.Label = string(data)
+		signal.Label = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -161,7 +165,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.TransducerType = string(data)
+		signal.TransducerType = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -170,7 +174,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.PhysicalDimension = string(data)
+		signal.PhysicalDimension = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -179,7 +183,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.PhysicalMinimum = string(data)
+		signal.PhysicalMinimum = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -188,7 +192,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.PhysicalMaximum = string(data)
+		signal.PhysicalMaximum = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -197,7 +201,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.DigitalMinimum = string(data)
+		signal.DigitalMinimum = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -206,7 +210,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.DigitalMaximum = string(data)
+		signal.DigitalMaximum = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -215,7 +219,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.Prefiltering = string(data)
+		signal.Prefiltering = strings.TrimSpace(string(data))
 	}
 
 	for signalIndex := uint32(0); signalIndex < header.NumSignals; signalIndex++ {
@@ -238,7 +242,7 @@ func readHeader(input *os.File) (*Header, error) {
 			log.Printf("Error: %v\n", err)
 			return nil, err
 		}
-		signal.Reserved = string(data)
+		signal.Reserved = strings.TrimSpace(string(data))
 	}
 
 	return &header, nil

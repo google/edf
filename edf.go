@@ -15,6 +15,8 @@
 // Package edf contains a parser for EDF+ files.
 package edf
 
+import "time"
+
 // Edf represents an EDF+ file.
 type Edf struct {
 	Header *Header
@@ -35,11 +37,11 @@ type Header struct {
 	NumDataRecords      uint32
 	DurationDataRecords float32
 	NumSignals          uint32
-	Signals             []Signal
+	Signals             []SignalDefinition
 }
 
-// Signal is one EDF signal.
-type Signal struct {
+// SignalDefinition holds the definition of an EDF signal.
+type SignalDefinition struct {
 	Label             string
 	TransducerType    string
 	PhysicalDimension string
@@ -60,4 +62,26 @@ type Record struct {
 // SignalRecord holds the samples for a single signal inside a data record.
 type SignalRecord struct {
 	Samples []int16
+}
+
+// Signal wraps all the data recorded on for a signal.
+type Signal interface {
+	// Label of the signal.
+	Label() string
+
+	// StartTime returns the date and time of the recording.
+	StartTime() time.Time
+
+	// EndTime returns the end date and time of the recording.
+	EndTime() time.Time
+
+	// Definition returns the sgnal definition. This may be nil for
+	// composite/generated signals.
+	Definition() *SignalDefinition
+
+	// SamplingRate returns the time between two recording samples of this signal.
+	SamplingRate() time.Duration
+
+	// Recording returns the recording data, in physical units.
+	Recording(start, end time.Time) ([]float32, error)
 }
