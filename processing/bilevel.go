@@ -12,33 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package edf contains a parser for EDF+ files.
-package edf
+// Package processing contains a processing utilities for EDF signal.
+package processing
 
 import (
 	"math"
 	"time"
+
+	"github.com/google/edf"
+)
+
+type Level int
+
+const (
+	TRANSITION Level = iota
+	LOW
+	HIGH
 )
 
 // BiLevelSignal is an EDF signal coerced into two values (levels) only.
 type BiLevelSignal interface {
-	Signal
-	Low() float32
-	High() float32
+	edf.Signal
+	Low() float64
+	High() float64
+	BiLevelRecording(start, end time.Time) ([]Level, error)
 }
 
 // biLevelSignal is the internal representation of BiLevelSignal
 type biLevelSignal struct {
-	s    Signal
-	low  float32
-	high float32
+	s         edf.Signal
+	low       float64
+	high      float64
+	tolerance float64
 }
 
-func (s *biLevelSignal) Low() float32 {
+func (s *biLevelSignal) Low() float64 {
 	return s.low
 }
 
-func (s *biLevelSignal) High() float32 {
+func (s *biLevelSignal) High() float64 {
 	return s.high
 }
 
@@ -54,7 +66,7 @@ func (s *biLevelSignal) EndTime() time.Time {
 	return s.s.EndTime()
 }
 
-func (s *biLevelSignal) Definition() *SignalDefinition {
+func (s *biLevelSignal) Definition() *edf.SignalDefinition {
 	return nil
 }
 
@@ -62,22 +74,42 @@ func (s *biLevelSignal) SamplingRate() time.Duration {
 	return s.s.SamplingRate()
 }
 
-func (s *biLevelSignal) Recording(start, end time.Time) ([]float32, error) {
+func (s *biLevelSignal) BiLevelRecording(start, end time.Time) ([]Level, error) {
+	r, err := s.s.Recording(start, end)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]Level, len(r))
+	for i, dataPoint := range r {
+		if math.Abs(dataPoint-s.low) < s.tolerance {
+			data[i] = LOW
+		} else if math.Abs(dataPoint-s.high) < s.tolerance {
+			data[i] = HIGH
+		} else {
+			data[i] = TRANSITION
+		}
+	}
+	return data, nil
+}
+
+func (s *biLevelSignal) Recording(start, end time.Time) ([]float64, error) {
 	r, err := s.s.Recording(start, end)
 	if err != nil {
 		return nil, err
 	}
 	for i, dataPoint := range r {
-		if math.Abs(float64(dataPoint-s.low)) < math.Abs(float64(dataPoint-s.high)) {
+		if math.Abs(dataPoint-s.low) < s.tolerance {
 			r[i] = s.low
-		} else {
+		} else if math.Abs(dataPoint-s.high) < s.tolerance {
 			r[i] = s.high
+		} else {
+			r[i] = dataPoint
 		}
 	}
 	return r, nil
 }
 
 // NewBiLevelSignal transforms a signal into a bi-level signal.
-func NewBiLevelSignal(s Signal, lowlevel, highlevel float32) BiLevelSignal {
-	return &biLevelSignal{s, lowlevel, highlevel}
+func NewBiLevelSignal(s edf.Signal, lowlevel, highlevel, tolerance float64) BiLevelSignal {
+	return &biLevelSignal{s, lowlevel, highlevel, tolerance}
 }
