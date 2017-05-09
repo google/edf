@@ -41,8 +41,8 @@ type edfSignal struct {
 	signalIndex int
 
 	// digital to physical conversion parameters
-	a float32
-	b float32
+	a float64
+	b float64
 }
 
 func newEdfSignal(e *Edf, signalIndex int) (Signal, error) {
@@ -78,8 +78,8 @@ func newEdfSignal(e *Edf, signalIndex int) (Signal, error) {
 		return nil, err
 	}
 
-	s.a = float32((physMax - physMin) / (digiMax - digiMin))
-	s.b = float32(physMin - float64(s.a)*digiMin)
+	s.a = (physMax - physMin) / (digiMax - digiMin)
+	s.b = physMin - s.a*digiMin
 
 	return s, nil
 }
@@ -109,14 +109,14 @@ func (s *edfSignal) SamplingRate() time.Duration {
 }
 
 // Returns the recording data, in physical units.
-func (s *edfSignal) Recording(start, end time.Time) ([]float32, error) {
+func (s *edfSignal) Recording(start, end time.Time) ([]float64, error) {
 	r, err := s.edf.getSignalData(s.signalIndex, start, end)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]float32, len(r))
+	result := make([]float64, len(r))
 	for i, dataPoint := range r {
-		result[i] = s.a*float32(dataPoint) + s.b
+		result[i] = s.a*float64(dataPoint) + s.b
 	}
 	return result, nil
 }

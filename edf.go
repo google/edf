@@ -83,5 +83,5 @@ type Signal interface {
 	SamplingRate() time.Duration
 
 	// Recording returns the recording data, in physical units.
-	Recording(start, end time.Time) ([]float32, error)
+	Recording(start, end time.Time) ([]float64, error)
 }
