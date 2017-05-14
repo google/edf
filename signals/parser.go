@@ -12,30 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package edf contains a parser for EDF+ files.
-package edf
+package signals
 
 import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/google/edf"
 )
 
 // GetSignals return the signals from an EDF dataset.
-func (e *Edf) GetSignals() ([]Signal, error) {
+func GetSignals(e *edf.Edf) ([]Signal, error) {
 	signals := make([]Signal, e.Header.NumSignals)
-	var err error
 	for i := range e.Header.Signals {
-		signals[i], err = newEdfSignal(e, i)
+		signal, err := newEdfSignal(e, i)
 		if err != nil {
 			return nil, err
+		}
+		if e.Header.Signals[i].Label == "EDF Annotations" {
+			signals[i], err = newAnnotationSignal(signal)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			signals[i] = newDataSignal(signal)
 		}
 	}
 	return signals, nil
 }
 
 type edfSignal struct {
-	edf         *Edf
+	edf         *edf.Edf
 	startTime   time.Time
 	endTime     time.Time
 	signalIndex int
@@ -45,16 +53,16 @@ type edfSignal struct {
 	b float64
 }
 
-func newEdfSignal(e *Edf, signalIndex int) (Signal, error) {
+func newEdfSignal(e *edf.Edf, signalIndex int) (*edfSignal, error) {
 	s := new(edfSignal)
 	s.edf = e
 	s.signalIndex = signalIndex
-	start, err := e.Header.GetStartTime()
+	start, err := getStartTime(e.Header)
 	if err != nil {
 		return nil, err
 	}
 	s.startTime = start
-	end, err := e.Header.GetEndTime()
+	end, err := getEndTime(e.Header)
 	if err != nil {
 		return nil, err
 	}
@@ -99,36 +107,18 @@ func (s *edfSignal) EndTime() time.Time {
 }
 
 // Signal definition. This may be nil for composite/generated signals.
-func (s *edfSignal) Definition() *SignalDefinition {
+func (s *edfSignal) Definition() *edf.SignalDefinition {
 	return &s.edf.Header.Signals[s.signalIndex]
 }
 
-// Returns the time between two recording samples of this signal.
-func (s *edfSignal) SamplingRate() time.Duration {
-	return time.Duration(s.edf.Header.DurationDataRecords/float32(s.Definition().SamplesRecord)) * time.Second
-}
-
-// Returns the recording data, in physical units.
-func (s *edfSignal) Recording(start, end time.Time) ([]float64, error) {
-	r, err := s.edf.getSignalData(s.signalIndex, start, end)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]float64, len(r))
-	for i, dataPoint := range r {
-		result[i] = s.a*float64(dataPoint) + s.b
-	}
-	return result, nil
-}
-
-// GetStartTime returns the starting date and time of the recording
-func (h *Header) GetStartTime() (time.Time, error) {
+// getStartTime returns the starting date and time of the recording
+func getStartTime(h *edf.Header) (time.Time, error) {
 	return time.Parse("02.01.06 15.04.05", h.StartDate+" "+h.StartTime)
 }
 
-// GetEndTime returns the end date and time of the recording
-func (h *Header) GetEndTime() (time.Time, error) {
-	start, err := h.GetStartTime()
+// getEndTime returns the end date and time of the recording
+func getEndTime(h *edf.Header) (time.Time, error) {
+	start, err := getStartTime(h)
 	if err != nil {
 		return start, err
 	}
@@ -139,8 +129,8 @@ func (h *Header) GetEndTime() (time.Time, error) {
 }
 
 // getSignalData returns the signal samples between the specified times.
-func (e *Edf) getSignalData(signalIndex int, start, end time.Time) ([]int16, error) {
-	recordingStart, err := e.Header.GetStartTime()
+func getSignalData(e *edf.Edf, signalIndex int, start, end time.Time) ([]int16, error) {
+	recordingStart, err := getStartTime(e.Header)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +138,7 @@ func (e *Edf) getSignalData(signalIndex int, start, end time.Time) ([]int16, err
 		return nil, fmt.Errorf("Requesting data before the recording")
 	}
 
-	recordingEnd, err := e.Header.GetEndTime()
+	recordingEnd, err := getEndTime(e.Header)
 	if err != nil {
 		return nil, err
 	}
