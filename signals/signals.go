@@ -48,7 +48,7 @@ type DataSignal interface {
 	Recording(start, end time.Time) ([]float64, error)
 }
 
-// A single annotation from an annotation signal.
+// Annotation is a single annotation from an annotation signal.
 type Annotation interface {
 	// Time of the annotation.
 	Time() time.Time
@@ -57,7 +57,7 @@ type Annotation interface {
 	End() time.Time
 
 	// Annotation contents.
-	Annotation() string
+	Annotations() []string
 }
 
 // AnnotationSignal is a signal containing text annotations (timestamped or at regular intervals) per the

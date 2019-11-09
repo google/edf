@@ -29,8 +29,8 @@ type timestamp struct {
 }
 
 type timeStampedAnnotation struct {
-	timestamp  timestamp
-	annotation string
+	timestamp   timestamp
+	annotations []string
 }
 
 func (tsa *timeStampedAnnotation) Time() time.Time {
@@ -41,8 +41,8 @@ func (tsa *timeStampedAnnotation) End() time.Time {
 	return tsa.Time().Add(time.Duration(tsa.timestamp.Duration * float64(time.Second)))
 }
 
-func (tsa *timeStampedAnnotation) Annotation() string {
-	return tsa.annotation
+func (tsa *timeStampedAnnotation) Annotations() []string {
+	return tsa.annotations
 }
 
 type annotationSignal struct {
@@ -55,10 +55,11 @@ func (as *annotationSignal) Annotations(start, end time.Time) ([]Annotation, err
 	if start.Before(as.StartTime()) || end.After(as.EndTime()) || start.After(end) {
 		return nil, errors.New("Invalid start or end time")
 	}
-	for _, annotation := range as.annotations {
+	for annotationIndex := range as.annotations {
+		annotation := &(as.annotations[annotationIndex])
 		at := annotation.End()
 		if (at == start || at.After(start)) && (at == end || at.Before(end)) {
-			result = append(result, &annotation)
+			result = append(result, annotation)
 		}
 	}
 	return result, nil
@@ -66,51 +67,41 @@ func (as *annotationSignal) Annotations(start, end time.Time) ([]Annotation, err
 
 func newAnnotationSignal(baseSignal *edfSignal) (AnnotationSignal, error) {
 	records := baseSignal.edf.Records
-	buffer := new(bytes.Buffer)
-	aS := &annotationSignal{baseSignal, make([]timeStampedAnnotation, 0)}
-	durationSample := time.Duration(
-		float64(baseSignal.edf.Header.DurationDataRecords)/float64(baseSignal.Definition().SamplesRecord)) * time.Second
-	for i, record := range records {
-		tsa := timeStampedAnnotation{}
-
+	aS := annotationSignal{baseSignal, []timeStampedAnnotation{}}
+	for _, record := range records {
+		tsa := timeStampedAnnotation{timestamp{baseSignal.StartTime(), 0, 0}, []string{}}
 		signal := record.Signals[baseSignal.signalIndex]
-		// Read signal into string
+		// Extract bytes from 16-bit integers.
+		buffer := new(bytes.Buffer)
 		for _, biChar := range signal.Samples {
 			buffer.WriteByte(byte(biChar & 0xFF))
 			buffer.WriteByte(byte(biChar >> 8))
 		}
-
-		for {
-			sampleBytes, err := buffer.ReadBytes('\x00')
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				return nil, err
+		// Zero bytes don't count.
+		rawAnnotations := bytes.Split(bytes.Replace(buffer.Bytes(), []byte{'\x00'}, []byte{}, -1), []byte{'\x14'})
+		realAnnotations := [][]byte{}
+		for _, annotation := range rawAnnotations {
+			if len(annotation) != 0 {
+				realAnnotations = append(realAnnotations, annotation)
 			}
-			sampleBuffer := bytes.NewBuffer(sampleBytes[0 : len(sampleBytes)-1])
-			// Parse string
-			tsBytes, err := sampleBuffer.ReadBytes('\x14')
-			if err == io.EOF {
-				// No timestamp
-				tsa.annotation = string(tsBytes)
-				tsa.timestamp.base = baseSignal.StartTime().Add(time.Duration(i) * durationSample)
-				aS.annotations = append(aS.annotations, tsa)
-			} else if err != nil {
-				return nil, err
-			} else {
-				tsa.annotation = string(sampleBuffer.Bytes())
-				tsa.timestamp, err = parseTimestamp(baseSignal.StartTime(), tsBytes[0:len(tsBytes)-1])
-				if err != nil {
-					return nil, err
-				}
-			}
-			if len(tsa.annotation) == 0 {
+		}
+		for annotationIndex, realAnnotation := range realAnnotations {
+			if len(realAnnotation) == 0 {
 				continue
 			}
-			aS.annotations = append(aS.annotations, tsa)
+			// I have found in the wild timestamps both as the first or the second annotation.
+			if annotationIndex == 0 || annotationIndex == 1 {
+				timestamp, err := parseTimestamp(baseSignal.StartTime(), realAnnotation)
+				if err == nil {
+					tsa.timestamp = timestamp
+					continue
+				}
+			}
+			tsa.annotations = append(tsa.annotations, string(realAnnotation))
 		}
+		aS.annotations = append(aS.annotations, tsa)
 	}
-	return aS, nil
+	return &aS, nil
 }
 
 func parseTimestamp(base time.Time, tsBytes []byte) (timestamp, error) {
