@@ -16,10 +16,12 @@
 package processing
 
 import (
+	"errors"
 	"math"
 	"time"
 
 	"github.com/google/edf"
+	"github.com/google/edf/signals"
 )
 
 type Level int
@@ -32,7 +34,7 @@ const (
 
 // BiLevelSignal is an EDF signal coerced into two values (levels) only.
 type BiLevelSignal interface {
-	edf.Signal
+	signals.Signal
 	Low() float64
 	High() float64
 	BiLevelRecording(start, end time.Time) ([]Level, error)
@@ -40,7 +42,7 @@ type BiLevelSignal interface {
 
 // biLevelSignal is the internal representation of BiLevelSignal
 type biLevelSignal struct {
-	s         edf.Signal
+	s         signals.Signal
 	low       float64
 	high      float64
 	tolerance float64
@@ -71,11 +73,19 @@ func (s *biLevelSignal) Definition() *edf.SignalDefinition {
 }
 
 func (s *biLevelSignal) SamplingRate() time.Duration {
-	return s.s.SamplingRate()
+	ds, ok := s.s.(signals.DataSignal)
+	if !ok {
+		return 0
+	}
+	return ds.SamplingRate()
 }
 
 func (s *biLevelSignal) BiLevelRecording(start, end time.Time) ([]Level, error) {
-	r, err := s.s.Recording(start, end)
+	ds, ok := s.s.(signals.DataSignal)
+	if !ok {
+		return nil, errors.New("BiLevelRecording can only be created for data signals")
+	}
+	r, err := ds.Recording(start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +103,11 @@ func (s *biLevelSignal) BiLevelRecording(start, end time.Time) ([]Level, error) 
 }
 
 func (s *biLevelSignal) Recording(start, end time.Time) ([]float64, error) {
-	r, err := s.s.Recording(start, end)
+	ds, ok := s.s.(signals.DataSignal)
+	if !ok {
+		return nil, errors.New("BiLevelRecording can only be created for data signals")
+	}
+	r, err := ds.Recording(start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +124,6 @@ func (s *biLevelSignal) Recording(start, end time.Time) ([]float64, error) {
 }
 
 // NewBiLevelSignal transforms a signal into a bi-level signal.
-func NewBiLevelSignal(s edf.Signal, lowlevel, highlevel, tolerance float64) BiLevelSignal {
+func NewBiLevelSignal(s signals.Signal, lowlevel, highlevel, tolerance float64) BiLevelSignal {
 	return &biLevelSignal{s, lowlevel, highlevel, tolerance}
 }

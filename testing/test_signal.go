@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/edf"
+	"github.com/google/edf/signals"
 )
 
 type testingSignal struct {
@@ -58,6 +59,6 @@ func (ts *testingSignal) Recording(start, end time.Time) ([]float64, error) {
 	return result, nil
 }
 
-func NewTestingSignal(start, end time.Time, records []float64) edf.Signal {
+func NewTestingSignal(start, end time.Time, records []float64) signals.DataSignal {
 	return &testingSignal{start: start, end: end, records: records}
 }
