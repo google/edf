@@ -16,6 +16,7 @@
 package edf
 
 import (
+	"bufio"
 	"encoding/binary"
 	"io"
 	"log"
@@ -32,13 +33,14 @@ func init() {
 func ReadEDF(filename string) (*Edf, error) {
 	var err error
 
-	input, err := os.Open(filename)
+	fileInput, err := os.Open(filename)
 	if err != nil {
 		log.Printf("Error: %v\n", err)
 		return nil, err
 	}
 
-	defer input.Close()
+	defer fileInput.Close()
+	input := bufio.NewReader(fileInput)
 	edf := &Edf{}
 	edf.Header, err = readHeader(input)
 	if err != nil {
@@ -60,7 +62,7 @@ func readNextBytes(input io.Reader, size uint) ([]byte, error) {
 }
 
 // Reads the header of the EDF+ file.
-func readHeader(input *os.File) (*Header, error) {
+func readHeader(input io.Reader) (*Header, error) {
 	header := Header{}
 	var data []byte
 	var iData uint64
@@ -250,7 +252,7 @@ func readHeader(input *os.File) (*Header, error) {
 
 // Reads the data records from the EDF+ file. The header of the edf must be
 // parsed and filled.
-func readRecords(input *os.File, edf *Edf) error {
+func readRecords(input io.Reader, edf *Edf) error {
 	edf.Records = make([]Record, edf.Header.NumDataRecords)
 	for i := uint32(0); i < edf.Header.NumDataRecords; i++ {
 		record := &edf.Records[i]
